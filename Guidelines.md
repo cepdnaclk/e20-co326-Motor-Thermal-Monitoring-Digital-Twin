@@ -27,10 +27,13 @@ This project implements an **Industrial IoT Digital Twin** for motor health moni
 - ✅ Node-RED ingestion flow built and deployed:
   - MQTT In → JSON Parse → Alarm Logic (Function) → InfluxDB Write + Debug
 - ✅ InfluxDB `motor_health` bucket initialized and receiving data
-- ✅ Grafana connected to InfluxDB as data source (Flux query)
-- ✅ First Grafana dashboard panel created — live RMS time-series graph
+- ✅ Grafana connected to InfluxDB via auto-provisioned data source
+- ✅ Grafana dashboard exported and committed — `Motor Health Dashboard` with live RMS panel
 - ✅ End-to-end pipeline tested with mock MQTT data
 - ✅ `.env.example` created — secrets shared separately via WhatsApp
+- ✅ Node-RED flow exported to `nodered/flows.json`
+- ✅ Grafana dashboard exported to `grafana/dashboards/motor-health-dashboard.json`
+- ✅ Grafana InfluxDB data source auto-provisioned via `grafana/provisioning/datasources/influxdb.yml`
 
 ---
 
@@ -39,24 +42,26 @@ This project implements an **Industrial IoT Digital Twin** for motor health moni
 ```
 e20-co326-Motor-Health-Monitoring-Digital-Twin-with-Edge-Anomaly-Detection/
 ├── docker/
-│   ├── docker-compose.yml        ← All 4 services definition
-│   ├── mosquitto.conf            ← Legacy (replaced by config/)
+│   ├── docker-compose.yml              ← All 4 services definition
 │   ├── config/
-│   │   ├── mosquitto.conf        ← Active Mosquitto config
-│   │   └── passwd                ← Broker auth (auto-generated, not in git)
-│   ├── .env.example              ← Template — copy to .env and fill in secrets
-│   └── mock_publisher.py         ← Python script to simulate ESP32 telemetry
+│   │   ├── mosquitto.conf              ← Active Mosquitto config (committed)
+│   │   └── passwd                      ← Broker auth (auto-generated, NOT in git)
+│   ├── .env.example                    ← Template — copy to .env and fill in secrets
+│   └── mock_publisher.py               ← Python script to simulate ESP32 telemetry
 ├── nodered/
-│   └── flows.json                ← Node-RED flow export (import this)
+│   └── flows.json                      ← Node-RED flow export (import this)
 ├── firmware/
-│   ├── src/                      ← ESP32 Arduino/PlatformIO source (pending)
-│   └── include/                  ← Header files (pending)
+│   ├── src/                            ← ESP32 Arduino/PlatformIO source (pending)
+│   └── include/                        ← Header files (pending)
 ├── grafana/
-│   ├── dashboards/               ← Dashboard JSON exports (pending)
-│   └── provisioning/             ← Auto-provisioning configs (pending)
+│   ├── dashboards/
+│   │   └── motor-health-dashboard.json ← Grafana dashboard export (auto-loaded)
+│   └── provisioning/
+│       └── datasources/
+│           └── influxdb.yml            ← Auto-connects Grafana to InfluxDB on startup
 ├── docs/
-│   ├── diagrams/                 ← Architecture diagrams (Mermaid)
-│   └── evidence/                 ← Screenshots and test logs
+│   ├── diagrams/                       ← Architecture diagrams (Mermaid)
+│   └── evidence/                       ← Screenshots and test logs
 └── README.md
 ```
 
@@ -76,7 +81,7 @@ e20-co326-Motor-Health-Monitoring-Digital-Twin-with-Edge-Anomaly-Detection/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-org/e20-co326-Motor-Health-Monitoring-Digital-Twin-with-Edge-Anomaly-Detection.git
+git clone https://github.com/cepdnaclk/e20-co326-Motor-Health-Monitoring-Digital-Twin-with-Edge-Anomaly-Detection.git
 cd e20-co326-Motor-Health-Monitoring-Digital-Twin-with-Edge-Anomaly-Detection
 ```
 
@@ -86,32 +91,26 @@ cd e20-co326-Motor-Health-Monitoring-Digital-Twin-with-Edge-Anomaly-Detection
 cp docker/.env.example docker/.env
 ```
 
-Then open `docker/.env` and fill in the credentials shared on WhatsApp. **Never commit the `.env` file.**
+Open `docker/.env` and fill in the credentials shared on WhatsApp. **Never commit the `.env` file.**
 
 ### 3. Regenerate the Mosquitto password file
 
-The `passwd` file is not committed to git. Each team member must generate it locally using the shared password:
+The `passwd` file is not in git — each member generates it locally.
 
 ```bash
 cd docker
 
-# Start mosquitto temporarily in anonymous mode
-# Edit config/mosquitto.conf — change allow_anonymous to true and comment out password_file
-nano config/mosquitto.conf
+docker run --rm -v "$(pwd)/config:/mosquitto/config" eclipse-mosquitto:2 \
+  mosquitto_passwd -c -b /mosquitto/config/passwd motoradmin YOUR_MQTT_PASSWORD
 
-docker compose up mosquitto -d
-sleep 3
-
-# Generate the password file
-docker run --rm -v "$(pwd)/config:/mosquitto/config" eclipse-mosquitto:2   mosquitto_passwd -c -b /mosquitto/config/passwd motoradmin YOUR_MQTT_PASSWORD
-
-# Restore config/mosquitto.conf — set allow_anonymous false and uncomment password_file
-nano config/mosquitto.conf
-
-docker compose restart mosquitto
+# Verify it was created
+ls config/
+# Should show: mosquitto.conf  passwd
 ```
 
-> **Shortcut:** If Mosquitto is already running correctly on one machine, the passwd file can be shared directly via WhatsApp alongside the .env secrets.
+Replace `YOUR_MQTT_PASSWORD` with the MQTT password from WhatsApp.
+
+> **Note (Kali/NTFS users):** You may see a `world readable permissions` warning — this is harmless on NTFS filesystems. The broker will still load the file correctly.
 
 ### 4. Start the full stack
 
@@ -132,7 +131,7 @@ nodered     Up (healthy)    0.0.0.0:1880->1880/tcp
 
 ### 5. Fix Docker DNS (Kali Linux only)
 
-If `docker run hello-world` fails with a DNS error:
+If image pulls fail with a DNS error:
 
 ```bash
 sudo nano /etc/docker/daemon.json
@@ -156,21 +155,37 @@ sudo systemctl restart docker
 3. Select **Upload file** → choose `nodered/flows.json`
 4. Click **Import** → **Deploy**
 
-> **Important:** After import, double-click the MQTT In node → edit the server → confirm Host is `mosquitto` (not localhost). Same for InfluxDB Out node — URL must be `http://influxdb:8086`.
+> **Important:** After import, verify two settings before deploying:
+> - MQTT In node → Server Host = `mosquitto` (not `localhost`)
+> - InfluxDB Out node → URL = `http://influxdb:8086` (not `localhost`)
+>
+> These must be Docker service names, not localhost, because Node-RED runs inside Docker.
 
-### 7. Verify InfluxDB
+### 7. Grafana — data source and dashboard (auto-provisioned)
 
-1. Open `http://localhost:8086`
-2. Log in with credentials from `.env`
-3. Confirm `motor_health` bucket exists under **Load Data → Buckets**
-4. Go to **Data Explorer** → select `motor_health` → `motor_features` → field `rms` → Submit
+The data source and dashboard are **automatically loaded** on first startup via provisioning files committed to the repo. No manual setup needed.
 
-### 8. Verify Grafana
+Verify:
+1. Open `http://localhost:3000` → log in with credentials from `.env`
+2. Go to **Connections → Data Sources** → InfluxDB should show a green ✅ tick
+3. Go to **Dashboards** → open **Motor Health Dashboard**
 
-1. Open `http://localhost:3000`
-2. Log in with credentials from `.env`
-3. Go to **Connections → Data Sources** → confirm InfluxDB is connected (green tick)
-4. Go to **Dashboards** → open **Motor Health Dashboard**
+> **If the data source shows an error:** The `INFLUX_TOKEN` in your `.env` must exactly match the token InfluxDB was initialized with. If you are setting up fresh, the token in `.env` is used automatically. If InfluxDB already has data from a previous run (existing volume), the token must match what was set originally.
+
+### 8. Verify end-to-end with mock data
+
+```bash
+# Install dependency
+pip install paho-mqtt
+
+# Run mock publisher (simulates ESP32 telemetry)
+python3 docker/mock_publisher.py
+```
+
+Then check:
+- Node-RED debug panel shows incoming messages with `alarm_state` field
+- InfluxDB Data Explorer → `motor_health` → `motor_features` → `rms` shows values
+- Grafana Motor Health Dashboard shows live graph updating
 
 ---
 
@@ -181,8 +196,8 @@ sudo systemctl restart docker
 | Node-RED | http://localhost:1880 | No login required by default |
 | InfluxDB | http://localhost:8086 | Credentials in `.env` |
 | Grafana | http://localhost:3000 | Credentials in `.env` |
-| MQTT Broker | localhost:1883 | Auth required |
-| MQTT WebSocket | localhost:9001 | For browser clients |
+| MQTT Broker | localhost:1883 | Auth required — use credentials from `.env` |
+| MQTT WebSocket | localhost:9001 | For browser-based MQTT clients |
 
 ---
 
@@ -246,25 +261,6 @@ All telemetry messages on `telemetry/features` use this JSON structure:
 
 ---
 
-## Testing with Mock Publisher
-
-Run the mock publisher to simulate ESP32 telemetry without hardware:
-
-```bash
-pip install paho-mqtt
-python3 docker/mock_publisher.py
-```
-
-The script publishes one message per second, simulating normal motor behavior with an abnormal spike every 30 cycles.
-
-Alternatively, send a single test message:
-
-```bash
-mosquitto_pub -h localhost -p 1883   -u motoradmin -P motor2026secure   -t "factoryA/area1/motor01/telemetry/features"   -m '{"motor_id":"motor01","rms":0.42,"anomaly_score":0.1,"anomaly_flag":0,"relay_state":1}'
-```
-
----
-
 ## Node-RED Flow Description
 
 The current flow (`nodered/flows.json`) implements:
@@ -277,6 +273,57 @@ The current flow (`nodered/flows.json`) implements:
    - Otherwise → `"NORMAL"`
 4. **InfluxDB Out** — writes to `motor_features` measurement in `motor_health` bucket
 5. **Debug** — prints all messages to the Node-RED debug panel
+
+> **After every change to the Node-RED flow:** Export it immediately via hamburger menu → Export → All Flows → Download, then copy to `nodered/flows.json` and commit.
+
+---
+
+## Grafana Dashboard
+
+The dashboard (`grafana/dashboards/motor-health-dashboard.json`) is auto-loaded on startup.
+
+Current panels:
+- ✅ Live RMS time-series graph
+
+Planned panels (Member 3):
+- Anomaly score gauge
+- Alarm state indicator
+- Relay state panel
+- Device heartbeat panel
+- Historical trend panel
+- RUL estimate panel
+- Relay control button (bidirectional twin control)
+
+> **After every change to a Grafana dashboard:** Export it via Share → Export → Save to file, then copy to `grafana/dashboards/` and commit.
+
+---
+
+## Grafana Auto-Provisioning
+
+The file `grafana/provisioning/datasources/influxdb.yml` tells Grafana to automatically connect to InfluxDB on startup using the `INFLUX_TOKEN` from your `.env`. This means teammates do **not** need to manually add the data source — it appears automatically when the container starts.
+
+The `docker-compose.yml` mounts this folder:
+```yaml
+grafana:
+  volumes:
+    - grafana_data:/var/lib/grafana
+    - ../grafana/provisioning:/etc/grafana/provisioning
+```
+
+---
+
+## Data Persistence
+
+Docker named volumes store all data:
+
+| Volume | Contains | Survives `docker compose down`? |
+|---|---|---|
+| `docker_influxdb_data` | All time-series data, token, bucket | ✅ Yes |
+| `docker_grafana_data` | Dashboard state, user settings | ✅ Yes |
+| `docker_nodered_data` | Deployed flows | ✅ Yes |
+| `docker_mosquitto_data` | Broker persistence | ✅ Yes |
+
+> ⚠️ Running `docker compose down -v` will **delete all volumes and all data**. Only use this for a complete fresh start.
 
 ---
 
@@ -301,16 +348,9 @@ The current flow (`nodered/flows.json`) implements:
 - [ ] Export updated `flows.json` and commit
 
 ### Member 3 — Grafana Dashboard
-- [ ] Build full Motor Health Dashboard:
-  - Live RMS panel ✅
-  - Anomaly score gauge
-  - Alarm state indicator
-  - Relay state panel
-  - Device heartbeat panel
-  - Historical trend panel
-  - RUL estimate panel
+- [ ] Build remaining Motor Health Dashboard panels (see list above)
 - [ ] Add relay control button (Grafana → Node-RED → ESP32)
-- [ ] Export dashboard JSON to `grafana/dashboards/`
+- [ ] Export updated dashboard JSON to `grafana/dashboards/` and commit
 
 ### Member 4 — Documentation & Hardware
 - [ ] Draw electrical wiring diagram (ESP32 + sensor + relay)
@@ -371,12 +411,13 @@ flowchart LR
 
 ## Security Notes
 
-- Mosquitto requires username/password authentication — anonymous access is disabled
-- Credentials are stored in `.env` — never commit this file
-- `.env` is in `.gitignore`
-- Use `.env.example` as the template
-- Credentials shared via WhatsApp only
+- Mosquitto requires username/password — anonymous access is disabled
+- All credentials are in `.env` — never commit this file
+- `.env` is listed in `.gitignore`
+- Use `.env.example` as the safe template
+- Credentials shared via WhatsApp only — never in chat, email, or commit messages
 - All Docker services use non-default passwords
+- `docker/config/passwd` is also in `.gitignore` — never commit the password hash
 
 ---
 
@@ -384,12 +425,15 @@ flowchart LR
 
 | Problem | Cause | Fix |
 |---|---|---|
-| Mosquitto restarting | passwd file missing | Regenerate passwd file (Step 3) |
-| Node-RED `connecting` | Wrong MQTT host | Change host to `mosquitto` not `localhost` |
-| InfluxDB `ECONNREFUSED` | Wrong InfluxDB URL | Change URL to `http://influxdb:8086` |
-| Docker DNS failure | IPv6 DNS issue on Kali | Add `8.8.8.8` to `/etc/docker/daemon.json` |
-| `sed` permission error | Project on NTFS `/mnt/` | Edit config files manually, not with sed |
-| Empty Data Explorer | No data written yet | Run mock publisher or publish test message |
+| Mosquitto restarting | `passwd` file missing | Regenerate passwd file (Step 3) |
+| Node-RED `connecting` | Wrong MQTT host | Set host to `mosquitto` not `localhost` |
+| InfluxDB `ECONNREFUSED` in Node-RED | Wrong URL | Set URL to `http://influxdb:8086` |
+| Grafana data source error | Token mismatch | Ensure `INFLUX_TOKEN` in `.env` matches InfluxDB init token |
+| Docker DNS failure | IPv6 DNS on Kali | Add `8.8.8.8` to `/etc/docker/daemon.json` |
+| `sed` permission error | Project on NTFS `/mnt/` | Edit config files manually in VS Code |
+| Empty Data Explorer | No data written yet | Run mock publisher or send test MQTT message |
+| `docker run` fails with spaces in path | Path has spaces | Always quote: `"$(pwd)/config:/mosquitto/config"` |
+| Node-RED flow lost after reimport | Nodes show `connecting` | Re-set MQTT host and InfluxDB URL after every import |
 
 ---
 
@@ -397,7 +441,7 @@ flowchart LR
 
 | Member | Role |
 |---|---|
-| Member 1 | Infrastructure, Docker, MQTT, Node-RED, InfluxDB, Grafana |
+| Janith | Infrastructure, Docker, MQTT, Node-RED, InfluxDB, Grafana setup |
 | Member 2 | Node-RED flows, MQTT topic design, RUL logic |
 | Member 3 | Grafana dashboard, Digital Twin UI |
 | Member 4 | ESP32 firmware, sensor, relay, wiring |
