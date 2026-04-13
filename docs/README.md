@@ -2,11 +2,11 @@
 layout: home
 permalink: index.html
 
-repository-name: e20-co326-Motor-Health-Monitoring-Digital-Twin-with-Edge-Anomaly-Detection
-title: Motor Health Monitoring Digital Twin with Edge Anomaly Detection
+repository-name: e20-co326-Motor-Thermal-Monitoring-Digital-Twin
+title: Motor Thermal Monitoring Digital Twin
 ---
 
-# Motor Health Monitoring Digital Twin with Edge Anomaly Detection
+# Motor Health (Thermal) Monitoring Digital Twin
 
 ---
 
