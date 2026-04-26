@@ -18,3 +18,11 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
+
+# Node.js
+node_modules/
+.npm/
+
+# Node-RED (auto-generated runtime state)
+*.backup
+code-v2/node-red/.config.*.json

@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  node-red:
+    image: nodered/node-red:latest
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./node-red:/data
+    depends_on:
+      - mqtt
+
+  python-device:
+    build: ./python
+    command: python -u mqtt_publisher.py
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mqtt
+
+  python-edge:
+    build: ./python
+    command: python -u edge_ai.py
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mqtt
