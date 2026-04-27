@@ -1,0 +1,105 @@
+services:
+
+  # ── MQTT Broker ──────────────────────────────────────────────────────────────
+  # Note: anonymous access is enabled (see mosquitto/mosquitto.conf).
+  # The Python containers (python-device, python-edge) do not use credentials,
+  # which is why auth is disabled. See mosquitto.conf for how to re-enable it.
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+
+  # ── Node-RED ─────────────────────────────────────────────────────────────────
+  # Hosts the Dashboard v3 UI and writes alert data to InfluxDB.
+  # Flow: MQTT In (alerts) → format → UI widgets + InfluxDB Out
+  #       MQTT In (sensor) → extract temp → chart + gauge
+  node-red:
+    image: nodered/node-red:latest
+    container_name: nodered
+    restart: unless-stopped
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./node-red:/data
+    environment:
+      - TZ=Asia/Colombo
+    depends_on:
+      - mosquitto
+
+  # ── InfluxDB ─────────────────────────────────────────────────────────────────
+  # Time-series historian. Stores motor_thermal_v2 measurement (from Edge AI alerts).
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_USER}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN}
+
+  # ── Grafana ───────────────────────────────────────────────────────────────────
+  # Digital twin dashboard. Auto-provisioned datasource + dashboard on startup.
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+    depends_on:
+      - influxdb
+
+  # ── Python Device (Simulated Sensor) ─────────────────────────────────────────
+  # Simulates an induction motor + temperature sensor + fan relay.
+  # Publishes: sensors/group10/motorTemp/data  (every 2 s)
+  # Subscribes: control/group10/motorTemp/fan  (fan command)
+  # Replace by stopping this container and using a real ESP32.
+  python-device:
+    build: ./python
+    container_name: python-device
+    command: python -u mqtt_publisher.py
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mosquitto
+
+  # ── Python Edge AI ────────────────────────────────────────────────────────────
+  # Z-score anomaly detection on a rolling 50-reading window.
+  # Publishes: alerts/group10/motorTemp/status  (to local broker + cloud SCADA)
+  #            control/group10/motorTemp/fan     (AUTO fan control)
+  # Subscribes: sensors/group10/motorTemp/data
+  #             control/group10/motorTemp/mode
+  python-edge:
+    build: ./python
+    container_name: python-edge
+    command: python -u edge_ai.py
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mosquitto
+
+volumes:
+  mosquitto_data:
+  influxdb_data:
+  grafana_data:

@@ -1,0 +1,10 @@
+{
+    "name": "node-red-project",
+    "description": "CO326 Motor Health — Edge AI IoT Dashboard",
+    "version": "0.0.1",
+    "private": true,
+    "dependencies": {
+        "@flowfuse/node-red-dashboard": "~1.30.2",
+        "node-red-contrib-influxdb": "^0.7.0"
+    }
+}

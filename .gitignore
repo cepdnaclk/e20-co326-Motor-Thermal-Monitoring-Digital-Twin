@@ -1,9 +1,10 @@
-docker/.env# Environment secrets
-docker/.env
+# Environment secrets — never commit these
+.env
 *.env
 
-# Mosquitto generated files
-docker/config/passwd
+# Mosquitto generated password files
+mosquitto/passwd
+deprecated/docker/config/passwd
 
 # OS files
 .DS_Store
@@ -13,6 +14,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 *.pyo
+.venv/
 
 # Editor
 .vscode/
@@ -23,6 +25,10 @@ __pycache__/
 node_modules/
 .npm/
 
-# Node-RED (auto-generated runtime state)
+# Node-RED auto-generated runtime state
 *.backup
-code-v2/node-red/.config.*.json
+node-red/.config.*.json
+deprecated/code-v2/node-red/.config.*.json
+
+# InfluxDB backup zip
+*.backup.zip

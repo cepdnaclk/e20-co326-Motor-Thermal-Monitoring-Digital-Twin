@@ -1,0 +1,5 @@
+{
+    "influxdb-config": {
+        "token": "co326-super-secret-token-change-in-prod"
+    }
+}

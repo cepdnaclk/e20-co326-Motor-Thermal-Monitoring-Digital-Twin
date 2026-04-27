@@ -1,93 +1,221 @@
-# Motor Health Monitoring Digital Twin (Thermal)
+# Motor Health Monitoring Digital Twin with Edge Anomaly Detection
 
-This repository contains an Industrial IoT digital twin focused on temperature-based motor condition monitoring using a mock sensor publisher, MQTT, Node-RED, InfluxDB, and Grafana.
+> CO326 — Computer Systems Engineering & Industrial Networks | University of Peradeniya | 2026
 
-## Industrial Problem
+---
 
-Detect motor overheating, thermal runaway, and cooling failure using edge-level temperature monitoring and cloud-based thermal trend analysis.
+## Group Members
 
-## Stack (Unchanged)
+| Name | Index |
+|---|---|
+| Janith | e20-xxx |
+| (Teammate 2) | (index) |
+| (Teammate 3) | (index) |
 
-- Docker stack: same 4 containers (Mosquitto, Node-RED, InfluxDB, Grafana)
-- MQTT topic hierarchy: unchanged structure
-- Ingestion path: MQTT -> Node-RED -> InfluxDB -> Grafana
+---
 
-## MQTT Topics
+## Project Description
 
-- Features topic (unchanged): `factoryA/area1/motor01/telemetry/features`
-- Raw topic description (optional rename in docs): `factoryA/area1/motor01/telemetry/raw` (raw temperature reading)
+This project implements an **Edge AI-based Industrial IoT system** that monitors motor surface temperature in real time, detects anomalies at the edge using Z-score statistical analysis, and controls a cooling fan relay to protect the motor from thermal damage.
 
-## Thermal Payload Schema
+**Industrial Problem:** Detect motor overheating, thermal runaway, and cooling failure before they cause physical damage or production downtime.
 
-Messages published to `telemetry/features` use:
+**Key features:**
+- Simulated motor device (or real ESP32) publishes temperature every 2 seconds
+- Edge AI layer applies Z-score anomaly detection on a rolling 50-reading window
+- Automatic fan control with hysteresis (fan ON during anomaly, OFF after 5 consecutive NORMAL readings)
+- Manual fan override and AUTO/MANUAL mode switch via Node-RED dashboard
+- Alert data forwarded to both local historian (InfluxDB) and cloud SCADA (lecturer's broker)
+- Grafana digital twin dashboard with live gauges, trend graphs, and alert timeline
 
+---
+
+## System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  DEVICE LAYER (python-device container / real ESP32)             │
+│  Simulates motor + temperature sensor + fan relay                │
+│  Publishes: sensors/group10/motorTemp/data  (every 2 s)          │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ MQTT (local Mosquitto broker)
+                          ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  EDGE AI LAYER (python-edge container)                           │
+│  Z-score anomaly detection on rolling 50-reading window          │
+│  Fan control with hysteresis (AUTO mode)                         │
+│  Publishes alerts locally + to cloud SCADA broker                │
+└──────┬──────────────────────────────────────┬────────────────────┘
+       │ MQTT (local broker)                  │ MQTT (cloud broker)
+       ▼                                      ▼
+┌─────────────────────────┐       ┌──────────────────────────┐
+│  HMI LAYER (Node-RED)   │       │  SCADA (Lecturer server)  │
+│  Dashboard at :1880     │       │  Receives alerts only      │
+│  Live chart, gauge,     │       │  (never raw sensor data)   │
+│  alert log, fan control │       └──────────────────────────┘
+│  mode switch            │
+│  Writes to InfluxDB ───────────────────────────────────────┐
+└─────────────────────────┘                                  │
+                                                             ▼
+                                              ┌──────────────────────────┐
+                                              │  InfluxDB (Historian)     │
+                                              │  motor_thermal_v2 bucket  │
+                                              └────────────┬─────────────┘
+                                                           │
+                                                           ▼
+                                              ┌──────────────────────────┐
+                                              │  Grafana Digital Twin     │
+                                              │  Live temp gauge          │
+                                              │  Z-score trend            │
+                                              │  Alert status + timeline  │
+                                              │  Fan state indicator      │
+                                              └──────────────────────────┘
+```
+
+---
+
+## MQTT Topics Used
+
+| Topic | Format | Publisher | Subscribers | Purpose |
+|---|---|---|---|---|
+| `sensors/group10/motorTemp/data` | `sensors/<group-id>/<project>/data` | python-device | python-edge | Raw temperature every 2 s |
+| `alerts/group10/motorTemp/status` | `alerts/<group-id>/<project>/status` | python-edge | Node-RED, cloud SCADA | Z-score anomaly alert |
+| `control/group10/motorTemp/fan` | `control/<group-id>/<project>/fan` | python-edge, Node-RED | python-device | Fan relay command |
+| `control/group10/motorTemp/mode` | `control/<group-id>/<project>/mode` | Node-RED | python-edge | AUTO/MANUAL mode |
+
+**Sensor payload** (`sensors/.../data`):
 ```json
 {
-	"ts": 1712566800,
-	"motor_id": "motor01",
-	"temperature": 42.5,
-	"temp_rate": 0.3,
-	"temp_baseline": 35.0,
-	"temp_delta": 7.5,
-	"anomaly_score": 0.25,
-	"anomaly_flag": 0,
-	"relay_state": 1,
-	"mode": "live",
-	"wifi_rssi": -55
+  "temperature": 72.4,
+  "timestamp": 1714232100.0,
+  "fan_state": "OFF"
 }
 ```
 
-| Field | Description |
-|---|---|
-| `ts` | Unix timestamp (seconds) |
-| `motor_id` | Device identifier |
-| `temperature` | Current motor surface temperature (C) |
-| `temp_rate` | Rate of change (C per second) |
-| `temp_baseline` | Rolling average baseline temperature |
-| `temp_delta` | Difference from baseline |
-| `anomaly_score` | 0.0 to 1.0 derived from temp_delta and temp_rate |
-| `anomaly_flag` | 1 if threshold exceeded, else 0 |
-| `relay_state` | Relay state (0/1) |
-| `mode` | Source mode, e.g. `live` |
-| `wifi_rssi` | WiFi RSSI in dBm |
-
-## Node-RED + InfluxDB Updates
-
-- Alarm logic uses temperature thresholds:
-	- warning at `temperature >= 65`
-	- alarm at `temperature >= 80`
-	- warning on fast rise `temp_rate >= 0.5`
-- Influx measurement renamed:
-	- old: `motor_features`
-	- new: `motor_thermal`
-
-## Grafana Panels (Thermal)
-
-- Live Temperature (Gauge, 0-100 C)
-- Temperature Trend (Time series)
-- Rate of Change (Time series)
-- Temp Delta from Baseline (Stat)
-- Anomaly Score (Gauge, 0-1)
-- Alarm State (State timeline)
-- Relay State (Stat)
-
-Example Flux query:
-
-```flux
-from(bucket: "motor_health")
-	|> range(start: -1h)
-	|> filter(fn: (r) => r._measurement == "motor_thermal")
-	|> filter(fn: (r) => r._field == "temperature")
+**Alert payload** (`alerts/.../status`):
+```json
+{
+  "status": "WARNING",
+  "temperature": 72.4,
+  "z_score": 2.31,
+  "fan_command": "ON",
+  "timestamp": 1714232100.0
+}
 ```
 
-Recommended gauge thresholds for temperature:
+---
 
-- Green: 0-64 C
-- Orange: 65-79 C
-- Red: 80 C+
+## How to Run
 
-## Sensor and Actuator Notes
+### Prerequisites
+- Docker Engine 24+ with Docker Compose plugin
+- Git
 
-- Current phase: mock telemetry generator is used instead of ESP32 firmware.
-- Sensor: NTC thermistor (cheap, simple) or DS18B20 digital sensor (more accurate)
-- Actuator: Relay (cuts motor power when thermal alarm triggers)
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/cepdnaclk/e20-co326-Motor-Thermal-Monitoring-Digital-Twin.git
+cd e20-co326-Motor-Thermal-Monitoring-Digital-Twin
+```
+
+### 2. Create your `.env` file
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in your InfluxDB and Grafana credentials. **Never commit `.env`.**
+
+### 3. Start the full stack
+
+```bash
+docker compose up --build
+```
+
+All 6 services will start automatically:
+
+| Service | URL |
+|---|---|
+| Node-RED Dashboard | http://localhost:1880/dashboard |
+| Node-RED Editor | http://localhost:1880 |
+| InfluxDB | http://localhost:8086 |
+| Grafana | http://localhost:3000 |
+| MQTT Broker | localhost:1883 |
+
+### 4. Verify the pipeline
+
+Watch the logs for activity:
+
+```bash
+# Device — temperature data publishing every 2 s
+docker logs -f python-device
+
+# Edge AI — Z-score classification
+docker logs -f python-edge
+```
+
+Expected output from `python-edge`:
+```
+[EDGE ] temp=72.40°C  z=+2.310  status=WARNING   ai_fan=ON   mode=AUTO  window=50
+```
+
+### 5. Connecting to the lecturer's cloud broker
+
+Edit `python/config.py` and set `CLOUD_BROKER` to the lecturer's IP:
+
+```python
+CLOUD_BROKER = "192.168.x.x"   # replace with actual IP
+```
+
+Then rebuild:
+
+```bash
+docker compose up --build python-edge
+```
+
+### 6. Swapping simulation for a real ESP32
+
+Stop the simulated device container:
+```bash
+docker compose stop python-device
+```
+
+Flash your ESP32 to:
+- Connect to this machine's IP on port `1883`
+- Publish to `sensors/group10/motorTemp/data` every 2 seconds
+- Payload: `{"temperature": <float>, "timestamp": <unix_epoch>, "fan_state": "ON"|"OFF"}`
+- Subscribe to `control/group10/motorTemp/fan` and drive the relay accordingly
+
+---
+
+## Security Notes
+
+> **MQTT broker authentication:** Anonymous access is enabled in `mosquitto/mosquitto.conf` (`allow_anonymous true`).
+>
+> **Why:** The Edge AI Python containers (`python-device`, `python-edge`) do not carry credentials, and the lecturer's spec does not require broker-level authentication. This simplifies the setup for the course environment.
+>
+> **To re-enable auth:** Set `allow_anonymous false` and uncomment `password_file /mosquitto/config/passwd` in `mosquitto/mosquitto.conf`. Generate the password file with: `mosquitto_passwd -c mosquitto/passwd <username>`
+
+---
+
+## Results
+
+*Screenshots to be added after demo.*
+
+---
+
+## Challenges
+
+- Merging two independently developed codebases (different topic namespaces, different Docker service names, different auth configs)
+- Bridging the Node-RED dashboard (Dashboard v3) with the InfluxDB historian so both the HMI and digital twin views stay live from the same data source
+- Z-score classification requires at least 10 readings before triggering alerts (cold-start period)
+
+---
+
+## Future Improvements
+
+- Replace mock publisher with real ESP32 firmware
+- Connect to lecturer's cloud SCADA broker for live demo
+- Add TensorFlow Lite model for more accurate anomaly classification
+- Add Remaining Useful Life (RUL) estimation panel in Grafana
+- Enable MQTT TLS for production-grade security
