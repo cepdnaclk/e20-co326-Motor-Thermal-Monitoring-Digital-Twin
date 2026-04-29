@@ -1,0 +1,730 @@
+[
+    {
+        "id": "c5c81a027e273d61",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "cfedf65e29d974e4",
+        "type": "ui-base",
+        "name": "My Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "cd904209bacbf745",
+        "type": "ui-theme",
+        "name": "Default Theme",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094CE",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "bb9b754986c7e1bc",
+        "type": "ui-page",
+        "name": "Motor Monitor",
+        "ui": "cfedf65e29d974e4",
+        "path": "/page1",
+        "icon": "home",
+        "layout": "flex",
+        "theme": "cd904209bacbf745",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 1,
+        "className": "",
+        "visible": true,
+        "disabled": false
+    },
+    {
+        "id": "de82038b11b60ab8",
+        "type": "ui-group",
+        "name": "Cooling Fan",
+        "page": "bb9b754986c7e1bc",
+        "width": 4,
+        "height": 1,
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "fc201cbebdecfa28",
+        "type": "mqtt-broker",
+        "name": "local-mqtt-broker",
+        "broker": "mqtt",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "1782b3cf3b3f75b5",
+        "type": "ui-group",
+        "name": "Temperature Visualization",
+        "page": "bb9b754986c7e1bc",
+        "width": 15,
+        "height": 1,
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "3023155e692eb8ae",
+        "type": "mqtt in",
+        "z": "c5c81a027e273d61",
+        "name": "Temperature Data",
+        "topic": "sensors/group10/motorTemp/data",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "fc201cbebdecfa28",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 350,
+        "y": 900,
+        "wires": [
+            [
+                "6be8d13bdde5994f"
+            ]
+        ]
+    },
+    {
+        "id": "6be8d13bdde5994f",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Extract Temperature",
+        "func": "msg.payload = msg.payload.temperature;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 900,
+        "wires": [
+            [
+                "e47873ba28d2e9fc",
+                "bd3c7eeb34a5ca16"
+            ]
+        ]
+    },
+    {
+        "id": "e47873ba28d2e9fc",
+        "type": "ui-chart",
+        "z": "c5c81a027e273d61",
+        "group": "1782b3cf3b3f75b5",
+        "name": "Temperature Chart",
+        "label": "Motor Temperature",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "temerature",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "40",
+        "ymax": "120",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": 10,
+        "height": 9,
+        "className": "",
+        "interpolation": "smooth",
+        "x": 810,
+        "y": 900,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "bd3c7eeb34a5ca16",
+        "type": "ui-gauge",
+        "z": "c5c81a027e273d61",
+        "name": "Temperature Gauge",
+        "group": "1782b3cf3b3f75b5",
+        "order": 2,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 5,
+        "height": 4,
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Current Temerature",
+        "alwaysShowTitle": false,
+        "floatingTitlePosition": "top-left",
+        "units": "°C",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#5cd65c",
+                "text": "NORMAL",
+                "textType": "str"
+            },
+            {
+                "from": "85",
+                "color": "#ffc800",
+                "text": "WARNING",
+                "textType": "str"
+            },
+            {
+                "from": "90",
+                "color": "#ea5353",
+                "text": "CRITICAL",
+                "textType": "str"
+            }
+        ],
+        "min": 0,
+        "max": "120",
+        "sizeThickness": 16,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": false,
+        "className": "",
+        "x": 820,
+        "y": 960,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e0bf08600e5440b8",
+        "type": "mqtt in",
+        "z": "c5c81a027e273d61",
+        "name": "Alert Data",
+        "topic": "alerts/group10/motorTemp/status",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "fc201cbebdecfa28",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 360,
+        "y": 1040,
+        "wires": [
+            [
+                "a7b80dacba98f824",
+                "805db8c56aeb7032"
+            ]
+        ]
+    },
+    {
+        "id": "a7b80dacba98f824",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format Alert",
+        "func": "let status = msg.payload.status;\nlet color = \"green\";\nif (status === \"WARNING\") color = \"orange\";\nif (status === \"CRITICAL\") color = \"red\";\n\nmsg.payload = `<span style=\"color:${color}; font-size:24px; font-weight:bold;\">${status}</span>`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 1040,
+        "wires": [
+            [
+                "7a960b57d525af7e"
+            ]
+        ]
+    },
+    {
+        "id": "7a960b57d525af7e",
+        "type": "ui-text",
+        "z": "c5c81a027e273d61",
+        "group": "1782b3cf3b3f75b5",
+        "order": 3,
+        "width": 5,
+        "height": 0,
+        "name": "Alert Status",
+        "label": "Alert Status",
+        "format": "{{msg.payload}}",
+        "layout": "row-center",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "805db8c56aeb7032",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format Log",
+        "func": "let log = context.get(\"log\") || [];\n\nlet status = msg.payload.status;\nlet temp = msg.payload.temperature.toFixed(2);\nlet z = msg.payload.z_score.toFixed(2);\nlet time = new Date().toLocaleTimeString();\n\nlet entry = `[${time}] ${status} — ${temp}°C (z: ${z})`;\nlog.unshift(entry);\nif (log.length > 10) log = log.slice(0, 10);\n\ncontext.set(\"log\", log);\nmsg.payload = log.join(\"<br>\");\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 1120,
+        "wires": [
+            [
+                "3286a4deee8c658c"
+            ]
+        ]
+    },
+    {
+        "id": "3286a4deee8c658c",
+        "type": "ui-text",
+        "z": "c5c81a027e273d61",
+        "group": "1782b3cf3b3f75b5",
+        "order": 4,
+        "width": 5,
+        "height": 0,
+        "name": "Alert Log",
+        "label": "Alert Log",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 780,
+        "y": 1120,
+        "wires": []
+    },
+    {
+        "id": "81a8e1b60bf99daa",
+        "type": "ui-button",
+        "z": "c5c81a027e273d61",
+        "group": "de82038b11b60ab8",
+        "name": "Fan ON",
+        "label": "Fan ON",
+        "order": 5,
+        "width": 2,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "ON",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "blue",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 340,
+        "y": 1240,
+        "wires": [
+            [
+                "070b279f58486bb0"
+            ]
+        ]
+    },
+    {
+        "id": "08f8631207518178",
+        "type": "ui-button",
+        "z": "c5c81a027e273d61",
+        "group": "de82038b11b60ab8",
+        "name": "Fan OFF",
+        "label": "Fan OFF",
+        "order": 4,
+        "width": 2,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "OFF",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "green",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 340,
+        "y": 1320,
+        "wires": [
+            [
+                "ace713fcc318e9aa"
+            ]
+        ]
+    },
+    {
+        "id": "ec9449a38c39992a",
+        "type": "mqtt out",
+        "z": "c5c81a027e273d61",
+        "name": "Fan Command",
+        "topic": "control/group10/motorTemp/fan",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fc201cbebdecfa28",
+        "x": 860,
+        "y": 1280,
+        "wires": []
+    },
+    {
+        "id": "070b279f58486bb0",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format Fan ON",
+        "func": "msg.payload = JSON.stringify({\"command\": \"ON\"});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 1220,
+        "wires": [
+            [
+                "ec9449a38c39992a"
+            ]
+        ]
+    },
+    {
+        "id": "ace713fcc318e9aa",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format Fan OFF",
+        "func": "msg.payload = JSON.stringify({\"command\": \"OFF\"});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 610,
+        "y": 1340,
+        "wires": [
+            [
+                "ec9449a38c39992a"
+            ]
+        ]
+    },
+    {
+        "id": "43d6611798952dab",
+        "type": "ui-switch",
+        "z": "c5c81a027e273d61",
+        "name": "Control Mode",
+        "label": "",
+        "group": "de82038b11b60ab8",
+        "order": 3,
+        "width": 1,
+        "height": 0,
+        "passthru": false,
+        "decouple": false,
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "className": "",
+        "layout": "row-left",
+        "clickableArea": "label",
+        "onvalue": "AUTO",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "MANUAL",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "x": 280,
+        "y": 1460,
+        "wires": [
+            [
+                "10783447dc52fd37"
+            ]
+        ]
+    },
+    {
+        "id": "10783447dc52fd37",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format mode",
+        "func": "msg.payload = JSON.stringify({\"mode\": msg.payload});\nmsg.retain = true;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 1460,
+        "wires": [
+            [
+                "ef91a9c0525c8e02",
+                "e67a66a19ebf2be6"
+            ]
+        ]
+    },
+    {
+        "id": "ef91a9c0525c8e02",
+        "type": "mqtt out",
+        "z": "c5c81a027e273d61",
+        "name": "Control Mode",
+        "topic": "control/group10/motorTemp/mode",
+        "qos": "2",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fc201cbebdecfa28",
+        "x": 740,
+        "y": 1460,
+        "wires": []
+    },
+    {
+        "id": "e67a66a19ebf2be6",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format mode text",
+        "func": "let data = msg.payload;\nif (typeof data === \"string\") {\n    data = JSON.parse(data);\n}\nlet mode = data.mode;\nlet color = mode === \"AUTO\" ? \"green\" : \"red\";\nmsg.payload = `<span style=\"color:${color}; font-size:20px; font-weight:bold;\">${mode}</span>`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1600,
+        "wires": [
+            [
+                "7fb8c372f3c8e309"
+            ]
+        ]
+    },
+    {
+        "id": "7fb8c372f3c8e309",
+        "type": "ui-text",
+        "z": "c5c81a027e273d61",
+        "group": "de82038b11b60ab8",
+        "order": 2,
+        "width": 3,
+        "height": 0,
+        "name": "Mode Indicator",
+        "label": "Current Mode",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 860,
+        "y": 1600,
+        "wires": []
+    },
+    {
+        "id": "967738e2d5b5d3d8",
+        "type": "mqtt in",
+        "z": "c5c81a027e273d61",
+        "name": "",
+        "topic": "control/group10/motorTemp/fan",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "fc201cbebdecfa28",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 370,
+        "y": 1740,
+        "wires": [
+            [
+                "d8d78e1495fddcbd"
+            ]
+        ]
+    },
+    {
+        "id": "d8d78e1495fddcbd",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "function 1",
+        "func": "msg.payload = msg.payload.command;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 1740,
+        "wires": [
+            [
+                "7a71ed3cb2dd964a"
+            ]
+        ]
+    },
+    {
+        "id": "7a71ed3cb2dd964a",
+        "type": "ui-template",
+        "z": "c5c81a027e273d61",
+        "group": "de82038b11b60ab8",
+        "page": "",
+        "ui": "",
+        "name": "Fan Status",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "head": "",
+        "format": "<template>\n  <div style=\"display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px;\">\n    <svg :class=\"isOn ? 'spinning' : ''\" width=\"80\" height=\"80\" viewBox=\"0 0 100 100\">\n      <ellipse cx=\"50\" cy=\"25\" rx=\"10\" ry=\"24\" fill=\"#42a5f5\" opacity=\"0.85\" transform=\"rotate(0 50 50)\"/>\n      <ellipse cx=\"50\" cy=\"25\" rx=\"10\" ry=\"24\" fill=\"#42a5f5\" opacity=\"0.85\" transform=\"rotate(60 50 50)\"/>\n      <ellipse cx=\"50\" cy=\"25\" rx=\"10\" ry=\"24\" fill=\"#42a5f5\" opacity=\"0.85\" transform=\"rotate(120 50 50)\"/>\n      <ellipse cx=\"50\" cy=\"25\" rx=\"10\" ry=\"24\" fill=\"#42a5f5\" opacity=\"0.85\" transform=\"rotate(180 50 50)\"/>\n      <ellipse cx=\"50\" cy=\"25\" rx=\"10\" ry=\"24\" fill=\"#42a5f5\" opacity=\"0.85\" transform=\"rotate(240 50 50)\"/>\n      <ellipse cx=\"50\" cy=\"25\" rx=\"10\" ry=\"24\" fill=\"#42a5f5\" opacity=\"0.85\" transform=\"rotate(300 50 50)\"/>\n      <circle cx=\"50\" cy=\"50\" r=\"8\" fill=\"#1565c0\"/>\n      <circle cx=\"50\" cy=\"50\" r=\"4\" fill=\"#90caf9\"/>\n    </svg>\n    <span :style=\"{marginTop: '8px', fontSize: '16px', fontWeight: 'bold', color: isOn ? '#00c853' : '#999'}\">\n      {{ isOn ? 'FAN ON' : 'FAN OFF' }}\n    </span>\n  </div>\n</template>\n\n<script>\nexport default {\n  props: ['msg'],\n  computed: {\n    isOn() {\n      return this.msg && this.msg.payload === 'ON';\n    }\n  }\n}\n</script>\n\n<style>\n.spinning {\n  display: inline-block;\n  animation: spin 0.8s linear infinite;\n}\n@keyframes spin {\n  from { transform: rotate(0deg); }\n  to { transform: rotate(360deg); }\n}\n</style>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 710,
+        "y": 1740,
+        "wires": [
+            []
+        ]
+    }
+]
