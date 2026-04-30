@@ -11,10 +11,10 @@ from config import (
 )
 
 # --- SWAP LINE: uncomment exactly one to choose the active algorithm ---
-from ml.z_score          import classify, load_model   # Algo 0 — original baseline (default)
-# from ml.decision_tree    import classify, load_model  # Algo 1
-# from ml.isolation_forest import classify, load_model  # Algo 2
-# from ml.random_forest    import classify, load_model  # Algo 3
+#from ml.z_score          import classify, load_model   # Algo 0 — original baseline (default)
+#from ml.decision_tree    import classify, load_model  # Algo 1
+from ml.isolation_forest import classify, load_model  # Algo 2
+#from ml.random_forest    import classify, load_model  # Algo 3
 
 WINDOW_SIZE = 50
 

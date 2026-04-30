@@ -1,0 +1,9 @@
+# Trained model files — excluded from the build context so a stale
+# models/ directory on the host is never baked into the image.
+# Models are written to /app/models/ inside the running container.
+models/
+
+# Python cache — not needed in the image
+__pycache__/
+*.pyc
+*.pyo

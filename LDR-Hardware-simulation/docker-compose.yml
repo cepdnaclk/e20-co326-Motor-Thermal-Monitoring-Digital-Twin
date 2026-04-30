@@ -22,5 +22,7 @@ services:
     command: python -u edge_ai.py
     environment:
       - PYTHONUNBUFFERED=1
+    volumes:
+      - ./python/models:/app/models   # persist trained .joblib files across restarts
     depends_on:
       - mqtt
