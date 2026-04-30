@@ -4,6 +4,8 @@
 
 The current edge AI module (`python/edge_ai.py`) uses a **Z-score over a rolling 50-reading window** plus hard thresholds (85 °C → WARNING, 90 °C → CRITICAL) to classify each reading and drive fan control. The goal of this document is to replace that classification logic with classical ML algorithms while keeping everything else — MQTT wiring, fan hysteresis, Node-RED dashboard, cloud forwarding — completely untouched.
 
+The existing Z-score logic is **preserved** as `ml/z_score.py` (Algorithm 0 / baseline). It is not deleted from the project — it becomes an equal-standing swappable module so it can be restored at any time by changing one import line.
+
 ---
 
 ## Plug-and-Play Architecture
@@ -27,22 +29,24 @@ def classify(temperature: float, window: deque) -> tuple[str, float]:
 
 ```
 python/
-├── edge_ai.py            ← orchestrator, unchanged except 3-line swap
-├── config.py             ← unchanged
+├── edge_ai.py               ← orchestrator, unchanged except 3-line swap
+├── config.py                ← unchanged
 ├── ml/
 │   ├── __init__.py
-│   ├── base.py           ← shared feature-engineering helpers
-│   ├── decision_tree.py  ← Algorithm 1
+│   ├── base.py              ← shared feature-engineering helpers
+│   ├── z_score.py           ← Algorithm 0 — original baseline, preserved
+│   ├── decision_tree.py     ← Algorithm 1
 │   ├── isolation_forest.py  ← Algorithm 2
-│   └── random_forest.py  ← Algorithm 3
-└── models/               ← persisted .joblib files (git-ignored)
+│   └── random_forest.py     ← Algorithm 3
+└── models/                  ← persisted .joblib files (git-ignored)
 ```
 
 ### Swap in `edge_ai.py`
 
 ```python
-# --- SWAP LINE: pick one ---
-from ml.decision_tree    import classify, load_model   # Algo 1
+# --- SWAP LINE: pick one (only one uncommented at a time) ---
+from ml.z_score          import classify, load_model   # Algo 0 — original baseline (default)
+# from ml.decision_tree    import classify, load_model  # Algo 1
 # from ml.isolation_forest import classify, load_model  # Algo 2
 # from ml.random_forest    import classify, load_model  # Algo 3
 
@@ -53,7 +57,7 @@ load_model()
 status, score = classify(temperature, window)
 ```
 
-That single commented-in/out import is the only change needed to switch algorithms.
+That single commented-in/out import is the only change needed to switch algorithms. The default active line is `z_score` so the system behaves identically to before until you consciously swap.
 
 ---
 
@@ -86,6 +90,79 @@ def threshold_label(temperature: float, z_score: float) -> str:
         return "WARNING"
     return "NORMAL"
 ```
+
+---
+
+## Algorithm 0 — Z-Score (Original Baseline)
+
+This is the **existing logic extracted verbatim** from `edge_ai.py` lines 31–44 and wrapped in the standard module contract. No behaviour changes — it is the reference implementation against which all other algorithms are compared.
+
+### How It Works
+
+For each new reading, the z-score is computed relative to the rolling 50-reading window:
+
+```
+z = (temperature − mean(window)) / std(window)
+```
+
+Classification then uses hard absolute thresholds:
+
+```
+temperature > 90 °C  → CRITICAL
+temperature > 85 °C  → WARNING
+otherwise            → NORMAL
+```
+
+The z-score is returned as the `score` field (for logging) but does **not** influence the classification decision — that is entirely threshold-driven.
+
+### Implementation Plan
+
+**New file: `python/ml/z_score.py`** — exact logic from the current `classify()`, no changes:
+
+```python
+import numpy as np
+from collections import deque
+from config import T_WARNING, T_CRITICAL   # 85.0, 90.0
+
+MIN_READINGS = 10
+
+def load_model():
+    pass   # no model to load; satisfies the module contract
+
+def classify(temperature: float, window: deque):
+    z = 0.0
+    if len(window) >= MIN_READINGS:
+        arr = np.array(window)
+        mean, std = arr.mean(), arr.std()
+        if std > 0:
+            z = (temperature - mean) / std
+
+    if temperature > T_CRITICAL:
+        return "CRITICAL", z
+    if temperature > T_WARNING:
+        return "WARNING", z
+    return "NORMAL", z
+```
+
+`load_model()` is a no-op stub — it exists only so `edge_ai.py` can call it unconditionally without branching on which algorithm is active.
+
+**`config.py` change** — expose the two thresholds so `z_score.py` can import them instead of hardcoding:
+
+```python
+T_WARNING  = 85.0
+T_CRITICAL = 90.0
+```
+
+(These constants already exist in `edge_ai.py` as locals; move them to `config.py` once.)
+
+### Pros / Cons
+
+| Pros | Cons |
+|------|------|
+| Zero training, zero startup latency | Thresholds are hardcoded — don't adapt to hardware drift |
+| Perfectly transparent — the rule is readable | Z-score is computed but never used for the decision |
+| Proven on this hardware already | Can't learn non-linear patterns (e.g., rapid rise at moderate temp) |
+| Ideal fallback / regression baseline | Two separate mechanisms (z-score + threshold) may contradict each other |
 
 ---
 
@@ -445,27 +522,28 @@ RUN pip install --no-cache-dir paho-mqtt numpy scikit-learn
 
 ## Comparison Table
 
-| | Decision Tree | Isolation Forest | Random Forest |
-|--|--|--|--|
-| **Paradigm** | Supervised classification | Unsupervised anomaly detection | Supervised classification (ensemble) |
-| **Needs labels** | Yes (synthetic) | No | Yes (synthetic) |
-| **Adapts to drift** | No (needs retrain) | Yes (periodic self-refit) | No (needs retrain) |
-| **Interpretability** | High (printable tree) | Low (score) | Medium (feature importance) |
-| **Inference speed** | Fastest | Fast | Fast |
-| **Edge memory** | < 1 MB | ~5 MB | ~10 MB |
-| **Best when** | You want explainable rules | Hardware baseline is unknown / shifts | You need robustness over a single DT |
-| **Recommended order** | Start here | Try if DT struggles at baseline shifts | Upgrade path from DT |
+| | Z-Score (Baseline) | Decision Tree | Isolation Forest | Random Forest |
+|--|--|--|--|--|
+| **Paradigm** | Statistical threshold | Supervised classification | Unsupervised anomaly detection | Supervised classification (ensemble) |
+| **Needs labels** | No | Yes (synthetic) | No | Yes (synthetic) |
+| **Needs training** | No | Yes (offline) | Yes (warm-up) | Yes (offline) |
+| **Adapts to drift** | No | No (needs retrain) | Yes (periodic self-refit) | No (needs retrain) |
+| **Interpretability** | Highest (explicit rule) | High (printable tree) | Low (score) | Medium (feature importance) |
+| **Inference speed** | Fastest | Very fast | Fast | Fast |
+| **Edge memory** | < 0.1 MB | < 1 MB | ~5 MB | ~10 MB |
+| **Best when** | Baseline / fallback | You want explainable rules | Hardware baseline is unknown / shifts | You need robustness over a single DT |
 
 ---
 
 ## Implementation Order (Recommended)
 
-1. **Build `ml/base.py`** — shared feature engineering, no algorithm dependency.
-2. **Build `ml/decision_tree.py`** — simplest; validates the plug-and-play seam.
-3. **Modify `edge_ai.py`** — add `load_model()` call + swap `classify` import.
-4. **Verify end-to-end** — run `docker-compose up --build`, cover/uncover LDR, confirm Node-RED dashboard reacts identically to before.
-5. **Add `ml/isolation_forest.py`** — test warm-up period, verify self-calibration.
-6. **Add `ml/random_forest.py`** — compare with DT, observe whether probability thresholds need adjustment.
+1. **Build `ml/z_score.py`** — extract current `classify()` verbatim; move `T_WARNING`/`T_CRITICAL` to `config.py`. System behaviour is identical, but the seam now exists.
+2. **Modify `edge_ai.py`** — remove inline `classify()`, add `from ml.z_score import classify, load_model`, call `load_model()` at startup. Verify nothing changed.
+3. **Build `ml/base.py`** — shared feature engineering, used by all three ML modules.
+4. **Build `ml/decision_tree.py`** — swap import to `ml.decision_tree`, rebuild container, cover/uncover LDR.
+5. **Add `ml/isolation_forest.py`** — swap import, observe warm-up period and self-calibration.
+6. **Add `ml/random_forest.py`** — swap import, compare alert log against DT baseline.
+7. **Revert to baseline anytime** — swap import back to `ml.z_score`; no other changes needed.
 
 ---
 
