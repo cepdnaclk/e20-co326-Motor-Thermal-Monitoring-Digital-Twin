@@ -2,7 +2,6 @@ import json
 import time
 from collections import deque
 
-import numpy as np
 import paho.mqtt.client as mqtt
 
 from config import (
@@ -11,37 +10,23 @@ from config import (
     FAN_OFF_CONSECUTIVE_NORMAL,
 )
 
-WINDOW_SIZE = 50
-MIN_READINGS = 10
+# --- SWAP LINE: uncomment exactly one to choose the active algorithm ---
+from ml.z_score          import classify, load_model   # Algo 0 — original baseline (default)
+# from ml.decision_tree    import classify, load_model  # Algo 1
+# from ml.isolation_forest import classify, load_model  # Algo 2
+# from ml.random_forest    import classify, load_model  # Algo 3
 
-# Absolute thresholds tuned for LDR hardware:
-# uncovered baseline ≈ 77-79°C, fully covered ≈ 95°C
-T_WARNING  = 85.0
-T_CRITICAL = 90.0
+WINDOW_SIZE = 50
 
 window = deque(maxlen=WINDOW_SIZE)
 consecutive_normal = 0
 current_fan_command = "OFF"
 current_mode = "AUTO"
 
+load_model()
+
 local_client = mqtt.Client(client_id="edge-local")
 cloud_client = mqtt.Client(client_id="edge-cloud")
-
-
-def classify(temperature):
-    # Compute z-score for reporting even though classification uses absolute thresholds
-    z = 0.0
-    if len(window) >= MIN_READINGS:
-        arr = np.array(window)
-        mean, std = arr.mean(), arr.std()
-        if std > 0:
-            z = (temperature - mean) / std
-
-    if temperature > T_CRITICAL:
-        return "CRITICAL", z
-    if temperature > T_WARNING:
-        return "WARNING", z
-    return "NORMAL", z
 
 
 def on_message(client, userdata, msg):
@@ -55,7 +40,7 @@ def on_message(client, userdata, msg):
     temperature = data["temperature"]
     window.append(temperature)
 
-    status, z_score = classify(temperature)
+    status, score = classify(temperature, window)
 
     if status in ("WARNING", "CRITICAL"):
         current_fan_command = "ON"
@@ -72,7 +57,7 @@ def on_message(client, userdata, msg):
     alert_payload = json.dumps({
         "status": status,
         "temperature": temperature,
-        "z_score": round(z_score, 4),
+        "z_score": round(score, 4),
         "fan_command": current_fan_command,
         "timestamp": data.get("timestamp", time.time()),
     })
@@ -83,7 +68,7 @@ def on_message(client, userdata, msg):
         pass
 
     print(
-        f"[EDGE ] temp={temperature:.2f}°C  z={z_score:+.3f}  "
+        f"[EDGE ] temp={temperature:.2f}°C  score={score:+.3f}  "
         f"status={status:<8}  ai_fan={current_fan_command}  "
         f"mode={current_mode}  window={len(window)}"
     )

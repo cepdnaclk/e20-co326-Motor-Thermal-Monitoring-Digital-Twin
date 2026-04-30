@@ -9,3 +9,7 @@ FAN_TOPIC    = "control/group10/motorTemp/fan"
 MODE_TOPIC   = "control/group10/motorTemp/mode"
 
 FAN_OFF_CONSECUTIVE_NORMAL = 5
+
+# Temperature thresholds — used by the z_score baseline module and synthetic data generation
+T_WARNING  = 85.0
+T_CRITICAL = 90.0
