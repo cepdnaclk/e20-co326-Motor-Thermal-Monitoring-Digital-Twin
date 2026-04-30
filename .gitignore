@@ -32,3 +32,4 @@ deprecated/code-v2/node-red/.config.*.json
 
 # InfluxDB backup zip
 *.backup.zip
+
