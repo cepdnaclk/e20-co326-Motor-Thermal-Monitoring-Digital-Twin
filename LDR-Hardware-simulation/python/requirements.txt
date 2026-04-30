@@ -1,0 +1,5 @@
+paho-mqtt>=1.6
+numpy>=1.24
+scikit-learn>=1.3
+joblib>=1.3               # teammates' ML model serialization
+tensorflow-cpu>=2.15      # LSTM inference; only loaded when PREDICTIVE_MODEL=lstm
