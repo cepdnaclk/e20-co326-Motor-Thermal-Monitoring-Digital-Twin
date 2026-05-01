@@ -1,6 +1,6 @@
-version: "3.8"
-
 services:
+
+  # ── MQTT Broker ───────────────────────────────────────────────────
   mqtt:
     image: eclipse-mosquitto:2.0
     ports:
@@ -8,6 +8,7 @@ services:
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
+  # ── Node-RED Dashboard ───────────────────────────────────────────
   node-red:
     image: nodered/node-red:latest
     ports:
@@ -17,6 +18,7 @@ services:
     depends_on:
       - mqtt
 
+  # ── Edge AI (teammates' ML classifiers) ──────────────────────────
   python-edge:
     build: ./python
     command: python -u edge_ai.py
@@ -26,3 +28,62 @@ services:
       - ./python/models:/app/models   # persist trained .joblib files across restarts
     depends_on:
       - mqtt
+
+  # ── Predictive Maintenance Service (NEW) ─────────────────────────
+  # Analyses temperature trends and publishes risk predictions.
+  # Read-only: never touches the fan control topic.
+  python-predict:
+    build: ./python
+    command: python -u predictive_service.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PREDICTIVE_MODEL=lstm              # trained model in models/
+    volumes:
+      - ./models:/app/models             # mount trained model artefacts
+    depends_on:
+      - mqtt
+    restart: unless-stopped
+
+  # ── InfluxDB (time-series historian) ─────────────────────────────
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_ORG=group10
+      - DOCKER_INFLUXDB_INIT_BUCKET=motor_thermal
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=motor-token-group10
+
+  # ── Grafana Dashboard ────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - influxdb
+
+  # ── Software Simulator (no ESP32 needed) ─────────────────────────
+  # Only starts when: docker compose --profile simulation up
+  python-device:
+    build: ./python
+    command: python -u mqtt_publisher.py
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mqtt
+    profiles:
+      - simulation
+
+volumes:
+  influxdb_data:
+  grafana_data:

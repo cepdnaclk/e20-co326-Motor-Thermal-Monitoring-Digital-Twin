@@ -1,3 +1,4 @@
+import importlib
 import json
 import time
 from collections import deque
@@ -7,14 +8,17 @@ import paho.mqtt.client as mqtt
 from config import (
     LOCAL_BROKER, CLOUD_BROKER, PORT,
     SENSOR_TOPIC, ALERT_TOPIC, FAN_TOPIC, MODE_TOPIC,
-    FAN_OFF_CONSECUTIVE_NORMAL,
+    FAN_OFF_CONSECUTIVE_NORMAL, ACTIVE_ALGO,
 )
 
-# --- SWAP LINE: uncomment exactly one to choose the active algorithm ---
-#from ml.z_score          import classify, load_model   # Algo 0 — original baseline (default)
-#from ml.decision_tree    import classify, load_model  # Algo 1
-from ml.isolation_forest import classify, load_model  # Algo 2
-#from ml.random_forest    import classify, load_model  # Algo 3
+_VALID_ALGOS = {"z_score", "decision_tree", "isolation_forest", "random_forest"}
+if ACTIVE_ALGO not in _VALID_ALGOS:
+    raise ValueError(f"config.ACTIVE_ALGO={ACTIVE_ALGO!r} is not valid. Choose from: {_VALID_ALGOS}")
+
+_algo_mod  = importlib.import_module(f"ml.{ACTIVE_ALGO}")
+classify   = _algo_mod.classify
+load_model = _algo_mod.load_model
+print(f"[EDGE ] Algorithm: {ACTIVE_ALGO}")
 
 WINDOW_SIZE = 50
 

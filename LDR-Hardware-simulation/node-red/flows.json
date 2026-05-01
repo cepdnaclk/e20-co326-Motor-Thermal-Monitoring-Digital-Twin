@@ -665,7 +665,7 @@
         "title": "Current Temerature",
         "alwaysShowTitle": false,
         "floatingTitlePosition": "top-left",
-        "units": "°C",
+        "units": "\u00b0C",
         "icon": "",
         "prefix": "",
         "suffix": "",
@@ -704,6 +704,410 @@
         ]
     },
     {
+        "id": "e0bf08600e5440b8",
+        "type": "mqtt in",
+        "z": "c5c81a027e273d61",
+        "name": "Alert Data",
+        "topic": "alerts/group10/motorTemp/status",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "fc201cbebdecfa28",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 360,
+        "y": 1040,
+        "wires": [
+            [
+                "a7b80dacba98f824",
+                "805db8c56aeb7032"
+            ]
+        ]
+    },
+    {
+        "id": "a7b80dacba98f824",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format Alert",
+        "func": "let status = msg.payload.status;\nlet color = \"green\";\nif (status === \"WARNING\") color = \"orange\";\nif (status === \"CRITICAL\") color = \"red\";\n\nmsg.payload = `<span style=\"color:${color}; font-size:24px; font-weight:bold;\">${status}</span>`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 1040,
+        "wires": [
+            [
+                "7a960b57d525af7e"
+            ]
+        ]
+    },
+    {
+        "id": "7a960b57d525af7e",
+        "type": "ui-text",
+        "z": "c5c81a027e273d61",
+        "group": "1782b3cf3b3f75b5",
+        "order": 3,
+        "width": 5,
+        "height": 0,
+        "name": "Alert Status",
+        "label": "Alert Status",
+        "format": "{{msg.payload}}",
+        "layout": "row-center",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "805db8c56aeb7032",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format Log",
+        "func": "let log = context.get(\"log\") || [];\n\nlet status = msg.payload.status;\nlet temp = msg.payload.temperature.toFixed(2);\nlet z = msg.payload.z_score.toFixed(2);\nlet time = new Date().toLocaleTimeString();\n\nlet entry = `[${time}] ${status} — ${temp}°C (z: ${z})`;\nlog.unshift(entry);\nif (log.length > 10) log = log.slice(0, 10);\n\ncontext.set(\"log\", log);\nmsg.payload = log.join(\"<br>\");\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 1120,
+        "wires": [
+            [
+                "3286a4deee8c658c"
+            ]
+        ]
+    },
+    {
+        "id": "3286a4deee8c658c",
+        "type": "ui-text",
+        "z": "c5c81a027e273d61",
+        "group": "1782b3cf3b3f75b5",
+        "order": 4,
+        "width": 5,
+        "height": 0,
+        "name": "Alert Log",
+        "label": "Alert Log",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 780,
+        "y": 1120,
+        "wires": []
+    },
+    {
+        "id": "81a8e1b60bf99daa",
+        "type": "ui-button",
+        "z": "c5c81a027e273d61",
+        "group": "de82038b11b60ab8",
+        "name": "Fan ON",
+        "label": "Fan ON",
+        "order": 5,
+        "width": 2,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "ON",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "blue",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 340,
+        "y": 1240,
+        "wires": [
+            [
+                "070b279f58486bb0"
+            ]
+        ]
+    },
+    {
+        "id": "08f8631207518178",
+        "type": "ui-button",
+        "z": "c5c81a027e273d61",
+        "group": "de82038b11b60ab8",
+        "name": "Fan OFF",
+        "label": "Fan OFF",
+        "order": 4,
+        "width": 2,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "OFF",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "green",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 340,
+        "y": 1320,
+        "wires": [
+            [
+                "ace713fcc318e9aa"
+            ]
+        ]
+    },
+    {
+        "id": "ec9449a38c39992a",
+        "type": "mqtt out",
+        "z": "c5c81a027e273d61",
+        "name": "Fan Command",
+        "topic": "control/group10/motorTemp/fan",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fc201cbebdecfa28",
+        "x": 860,
+        "y": 1280,
+        "wires": []
+    },
+    {
+        "id": "070b279f58486bb0",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format Fan ON",
+        "func": "msg.payload = JSON.stringify({\"command\": \"ON\"});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 1220,
+        "wires": [
+            [
+                "ec9449a38c39992a"
+            ]
+        ]
+    },
+    {
+        "id": "ace713fcc318e9aa",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format Fan OFF",
+        "func": "msg.payload = JSON.stringify({\"command\": \"OFF\"});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 610,
+        "y": 1340,
+        "wires": [
+            [
+                "ec9449a38c39992a"
+            ]
+        ]
+    },
+    {
+        "id": "43d6611798952dab",
+        "type": "ui-switch",
+        "z": "c5c81a027e273d61",
+        "name": "Control Mode",
+        "label": "",
+        "group": "de82038b11b60ab8",
+        "order": 3,
+        "width": 1,
+        "height": 0,
+        "passthru": false,
+        "decouple": false,
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "className": "",
+        "layout": "row-left",
+        "clickableArea": "label",
+        "onvalue": "AUTO",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "MANUAL",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "x": 280,
+        "y": 1460,
+        "wires": [
+            [
+                "10783447dc52fd37"
+            ]
+        ]
+    },
+    {
+        "id": "10783447dc52fd37",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format mode",
+        "func": "msg.payload = JSON.stringify({\"mode\": msg.payload});\nmsg.retain = true;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 1460,
+        "wires": [
+            [
+                "ef91a9c0525c8e02",
+                "e67a66a19ebf2be6"
+            ]
+        ]
+    },
+    {
+        "id": "ef91a9c0525c8e02",
+        "type": "mqtt out",
+        "z": "c5c81a027e273d61",
+        "name": "Control Mode",
+        "topic": "control/group10/motorTemp/mode",
+        "qos": "2",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fc201cbebdecfa28",
+        "x": 740,
+        "y": 1460,
+        "wires": []
+    },
+    {
+        "id": "e67a66a19ebf2be6",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "Format mode text",
+        "func": "let data = msg.payload;\nif (typeof data === \"string\") {\n    data = JSON.parse(data);\n}\nlet mode = data.mode;\nlet color = mode === \"AUTO\" ? \"green\" : \"red\";\nmsg.payload = `<span style=\"color:${color}; font-size:20px; font-weight:bold;\">${mode}</span>`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1600,
+        "wires": [
+            [
+                "7fb8c372f3c8e309"
+            ]
+        ]
+    },
+    {
+        "id": "7fb8c372f3c8e309",
+        "type": "ui-text",
+        "z": "c5c81a027e273d61",
+        "group": "de82038b11b60ab8",
+        "order": 2,
+        "width": 3,
+        "height": 0,
+        "name": "Mode Indicator",
+        "label": "Current Mode",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 860,
+        "y": 1600,
+        "wires": []
+    },
+    {
+        "id": "967738e2d5b5d3d8",
+        "type": "mqtt in",
+        "z": "c5c81a027e273d61",
+        "name": "",
+        "topic": "control/group10/motorTemp/fan",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "fc201cbebdecfa28",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 370,
+        "y": 1740,
+        "wires": [
+            [
+                "d8d78e1495fddcbd"
+            ]
+        ]
+    },
+    {
+        "id": "d8d78e1495fddcbd",
+        "type": "function",
+        "z": "c5c81a027e273d61",
+        "name": "function 1",
+        "func": "msg.payload = msg.payload.command;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 1740,
+        "wires": [
+            [
+                "7a71ed3cb2dd964a"
+            ]
+        ]
+    },
+    {
         "id": "7a71ed3cb2dd964a",
         "type": "ui-template",
         "z": "c5c81a027e273d61",
@@ -726,5 +1130,198 @@
         "wires": [
             []
         ]
+    },
+    {
+        "id": "predict_flow_z",
+        "type": "tab",
+        "label": "Predictive Maintenance",
+        "disabled": false,
+        "info": "Predictive maintenance flows — risk gauge + InfluxDB writer",
+        "env": []
+    },
+    {
+        "id": "predict_mqtt_in",
+        "type": "mqtt in",
+        "z": "predict_flow_z",
+        "name": "Predict Risk",
+        "topic": "predict/group10/motorTemp/risk",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fc201cbebdecfa28",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 60,
+        "wires": [
+            [
+                "predict_json",
+                "predict_influx_func"
+            ]
+        ]
+    },
+    {
+        "id": "predict_json",
+        "type": "json",
+        "z": "predict_flow_z",
+        "name": "",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 290,
+        "y": 60,
+        "wires": [
+            [
+                "predict_eta_format",
+                "predict_gauge_format"
+            ]
+        ]
+    },
+    {
+        "id": "predict_gauge_format",
+        "type": "function",
+        "z": "predict_flow_z",
+        "name": "Format Gauge",
+        "func": "msg.payload = msg.payload.risk_score * 100;\nreturn msg;",
+        "outputs": 1,
+        "x": 480,
+        "y": 40,
+        "wires": [
+            [
+                "predict_gauge"
+            ]
+        ]
+    },
+    {
+        "id": "predict_gauge",
+        "type": "ui-gauge",
+        "z": "predict_flow_z",
+        "name": "Anomaly Risk",
+        "group": "predict_ui_group",
+        "order": 1,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 6,
+        "height": 4,
+        "gtype": "gauge-half",
+        "title": "Predicted Anomaly Risk",
+        "units": "%",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#00b500",
+                "text": "LOW"
+            },
+            {
+                "from": "30",
+                "color": "#e6e600",
+                "text": "MEDIUM"
+            },
+            {
+                "from": "60",
+                "color": "#ca3838",
+                "text": "HIGH"
+            }
+        ],
+        "min": 0,
+        "max": "100",
+        "x": 680,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "predict_eta_format",
+        "type": "function",
+        "z": "predict_flow_z",
+        "name": "Format ETA",
+        "func": "let eta = msg.payload.eta_minutes;\nif (eta == null) {\n    msg.payload = \"\u2705 No risk predicted\";\n} else {\n    msg.payload = `\u26a0\ufe0f Overheat in ${Number(eta).toFixed(1)} min`;\n}\nreturn msg;",
+        "outputs": 1,
+        "x": 480,
+        "y": 80,
+        "wires": [
+            [
+                "predict_eta"
+            ]
+        ]
+    },
+    {
+        "id": "predict_eta",
+        "type": "ui-text",
+        "z": "predict_flow_z",
+        "name": "ETA Text",
+        "group": "predict_ui_group",
+        "order": 2,
+        "width": 6,
+        "height": 0,
+        "label": "",
+        "format": "{{msg.payload}}",
+        "layout": "row-center",
+        "x": 680,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "predict_influx_func",
+        "type": "function",
+        "z": "predict_flow_z",
+        "name": "Format for InfluxDB",
+        "func": "msg.payload = [{\n    risk_score: msg.payload.risk_score,\n    eta_minutes: msg.payload.eta_minutes || -1.0\n},\n{\n    model: msg.payload.model || \"baseline\",\n    group_id: \"group10\"\n}];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 310,
+        "y": 140,
+        "wires": [
+            [
+                "predict_influx_out"
+            ]
+        ]
+    },
+    {
+        "id": "predict_influx_out",
+        "type": "influxdb out",
+        "z": "predict_flow_z",
+        "influxdb": "influx_config",
+        "name": "Write Prediction",
+        "measurement": "motor_prediction",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "group10",
+        "bucket": "motor_thermal",
+        "x": 520,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "predict_ui_group",
+        "type": "ui-group",
+        "name": "Predictive Maintenance",
+        "page": "bb9b754986c7e1bc",
+        "width": 6,
+        "height": 1,
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "influx_config",
+        "type": "influxdb",
+        "hostname": "influxdb",
+        "port": "8086",
+        "protocol": "http",
+        "database": "database",
+        "name": "InfluxDB Config",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://influxdb:8086",
+        "rejectUnauthorized": true,
+        "token": "motor-token-group10"
     }
 ]
