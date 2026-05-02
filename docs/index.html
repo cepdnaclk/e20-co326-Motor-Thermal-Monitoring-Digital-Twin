@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Motor Thermal Monitoring Digital Twin — Group 10</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0c10;
+      --surface:   #111318;
+      --border:    #1e2230;
+      --accent:    #ff5a1f;
+      --accent2:   #ffd166;
+      --warn:      #ffd166;
+      --crit:      #ff5a1f;
+      --ok:        #06d6a0;
+      --text:      #e8eaf0;
+      --muted:     #6b7280;
+      --mono:      'Space Mono', monospace;
+      --sans:      'Syne', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── GRID NOISE BACKGROUND ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,90,31,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,90,31,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 5rem 2rem 4rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .badge-row {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: fadeUp .6s .1s forwards;
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: .7rem;
+      padding: .25rem .7rem;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--muted);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .badge.live { border-color: var(--ok); color: var(--ok); }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -.02em;
+      opacity: 0;
+      animation: fadeUp .6s .2s forwards;
+    }
+
+    h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .subtitle {
+      margin-top: 1.2rem;
+      font-family: var(--mono);
+      font-size: .85rem;
+      color: var(--muted);
+      opacity: 0;
+      animation: fadeUp .6s .3s forwards;
+    }
+
+    .hero-actions {
+      margin-top: 2.5rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      opacity: 0;
+      animation: fadeUp .6s .4s forwards;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem 1.5rem;
+      font-family: var(--mono);
+      font-size: .8rem;
+      letter-spacing: .05em;
+      text-decoration: none;
+      border-radius: 3px;
+      transition: all .2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+    .btn-primary:hover { background: #e04c14; transform: translateY(-2px); }
+
+    .btn-ghost {
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: transparent;
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+
+    /* ── LIVE TICKER ── */
+    .ticker-wrap {
+      position: relative;
+      z-index: 10;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      overflow: hidden;
+      height: 2.4rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .ticker-label {
+      flex-shrink: 0;
+      padding: 0 1.2rem;
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--accent);
+      border-right: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      background: var(--surface);
+      z-index: 2;
+    }
+
+    .ticker-track {
+      display: flex;
+      animation: ticker 30s linear infinite;
+      white-space: nowrap;
+    }
+
+    .ticker-item {
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--muted);
+      padding: 0 2.5rem;
+    }
+
+    .ticker-item span { color: var(--ok); margin-right: .4rem; }
+
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ── MAIN LAYOUT ── */
+    main {
+      position: relative;
+      z-index: 5;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem 6rem;
+    }
+
+    section { margin-top: 5rem; }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--accent);
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    h2 {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin-bottom: 1.2rem;
+    }
+
+    p { color: #b0b6c4; line-height: 1.75; }
+
+    /* ── STAT CARDS ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 2.5rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      padding: 1.8rem 1.5rem;
+      transition: background .2s;
+    }
+    .stat-card:hover { background: #161921; }
+
+    .stat-value {
+      font-size: 2.4rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--accent);
+      font-family: var(--mono);
+    }
+
+    .stat-value.ok   { color: var(--ok); }
+    .stat-value.warn { color: var(--warn); }
+
+    .stat-label {
+      margin-top: .5rem;
+      font-size: .75rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    /* ── ARCH DIAGRAM ── */
+    .arch-box {
+      margin-top: 2rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .arch-bar {
+      background: var(--surface);
+      padding: .6rem 1.2rem;
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+
+    .arch-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    @media (max-width: 650px) {
+      .arch-inner { grid-template-columns: 1fr; }
+    }
+
+    .arch-layer {
+      background: var(--surface);
+      padding: 1.5rem;
+    }
+
+    .arch-layer-title {
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--accent);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .arch-service {
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+      padding: .5rem .7rem;
+      margin-bottom: .4rem;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--text);
+      transition: border-color .2s;
+    }
+    .arch-service:hover { border-color: var(--accent); }
+
+    .svc-icon { font-size: 1rem; }
+
+    .svc-badge {
+      margin-left: auto;
+      font-size: .6rem;
+      padding: .15rem .5rem;
+      border-radius: 2px;
+      font-family: var(--mono);
+    }
+
+    .svc-badge.ok   { background: rgba(6,214,160,.15); color: var(--ok); }
+    .svc-badge.warn { background: rgba(255,209,102,.15); color: var(--warn); }
+    .svc-badge.hot  { background: rgba(255,90,31,.15); color: var(--accent); }
+
+    .arch-arrow {
+      grid-column: 1 / -1;
+      background: var(--bg);
+      padding: .7rem;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--muted);
+      letter-spacing: .08em;
+    }
+
+    /* ── ALGORITHMS ── */
+    .algo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .algo-card {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.5rem;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+      transition: border-color .25s, transform .25s;
+    }
+    .algo-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+
+    .algo-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .algo-card.c0::before { background: var(--muted); }
+    .algo-card.c1::before { background: var(--ok); }
+    .algo-card.c2::before { background: var(--warn); }
+    .algo-card.c3::before { background: var(--accent); }
+
+    .algo-num {
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--muted);
+      margin-bottom: .5rem;
+    }
+
+    .algo-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: .8rem;
+    }
+
+    .algo-tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: .6rem;
+      padding: .2rem .5rem;
+      border-radius: 2px;
+      background: var(--border);
+      color: var(--muted);
+      margin-right: .3rem;
+      margin-bottom: .3rem;
+    }
+
+    .algo-desc {
+      margin-top: .8rem;
+      font-size: .82rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── MQTT TOPICS TABLE ── */
+    .topic-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5rem;
+      font-family: var(--mono);
+      font-size: .78rem;
+    }
+
+    .topic-table th {
+      text-align: left;
+      padding: .7rem 1rem;
+      font-size: .65rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topic-table td {
+      padding: .8rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .topic-table tr:last-child td { border-bottom: none; }
+    .topic-table tr:hover td { background: var(--surface); }
+
+    .topic-path {
+      color: var(--accent2);
+    }
+
+    /* ── TEAM ── */
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .team-card {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.5rem;
+      background: var(--surface);
+      transition: border-color .25s;
+    }
+    .team-card:hover { border-color: var(--accent); }
+
+    .team-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    .team-name {
+      font-weight: 700;
+      font-size: .95rem;
+      margin-bottom: .2rem;
+    }
+
+    .team-index {
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--accent);
+      margin-bottom: .8rem;
+    }
+
+    .team-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .3rem;
+    }
+
+    .team-tag {
+      font-family: var(--mono);
+      font-size: .6rem;
+      padding: .15rem .45rem;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--muted);
+    }
+
+    /* ── LEAD TIME HIGHLIGHT ── */
+    .lead-time-block {
+      margin-top: 2rem;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 2rem;
+      background: rgba(255,90,31,.05);
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .lead-num {
+      font-family: var(--mono);
+      font-size: 4rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .lead-desc { font-size: .9rem; color: #b0b6c4; }
+    .lead-desc strong { color: var(--text); }
+
+    /* ── TERMINAL ── */
+    .terminal {
+      background: #060809;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 2rem;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .6rem 1rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-title {
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--muted);
+      margin-left: .5rem;
+    }
+
+    .terminal-body {
+      padding: 1.2rem 1.4rem;
+      font-family: var(--mono);
+      font-size: .8rem;
+      line-height: 1.9;
+    }
+
+    .t-prompt { color: var(--ok); }
+    .t-cmd    { color: var(--text); }
+    .t-comment { color: var(--muted); }
+    .t-out    { color: #6b7280; }
+    .t-edge   { color: var(--warn); }
+    .t-crit   { color: var(--accent); }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative;
+      z-index: 5;
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-left {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .footer-links a {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color .2s;
+    }
+    .footer-links a:hover { color: var(--accent); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity .6s, transform .6s;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── PULSE DOT ── */
+    .pulse-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+    }
+    .pulse {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 0 rgba(6,214,160,.6);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(6,214,160,.5); }
+      70%  { box-shadow: 0 0 0 6px rgba(6,214,160,0); }
+      100% { box-shadow: 0 0 0 0 rgba(6,214,160,0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="badge-row">
+    <span class="badge">CO326</span>
+    <span class="badge">University of Peradeniya</span>
+    <span class="badge">Group 10</span>
+    <span class="badge">May 2026</span>
+    <span class="badge live">
+      <span class="pulse-wrap"><span class="pulse"></span> Edge AI Active</span>
+    </span>
+  </div>
+
+  <h1>Motor <em>Thermal</em><br>Digital Twin</h1>
+
+  <p class="subtitle">
+    // Edge Anomaly Detection &amp; Predictive Maintenance &nbsp;|&nbsp;
+    ESP32 · MQTT · Docker · InfluxDB · Grafana
+  </p>
+
+  <div class="hero-actions">
+    <a href="https://github.com/cepdnaclk/e20-co326-Motor-Thermal-Monitoring-Digital-Twin"
+       class="btn btn-primary" target="_blank">
+      ⬡ &nbsp;View on GitHub
+    </a>
+    <a href="Report/Group10_Motor_Thermal_Monitoring_Digital_Twin_Report.pdf"
+       class="btn btn-ghost" target="_blank">
+      ↓ &nbsp;Download Report
+    </a>
+  </div>
+</header>
+
+<!-- ── TICKER ── -->
+<div class="ticker-wrap">
+  <div class="ticker-label">SYSTEM LOG</div>
+  <div class="ticker-track">
+    <span class="ticker-item"><span>✓</span>temp=68.42°C  z=+0.312  status=NORMAL   ai_fan=OFF   mode=AUTO  window=50</span>
+    <span class="ticker-item"><span>⚠</span>temp=86.10°C  z=+2.841  status=WARNING   ai_fan=ON    mode=AUTO  window=50</span>
+    <span class="ticker-item"><span>✓</span>temp=71.05°C  z=+0.521  status=NORMAL   ai_fan=ON    mode=AUTO  window=50</span>
+    <span class="ticker-item"><span>⚠</span>temp=91.73°C  z=+3.902  status=CRITICAL  ai_fan=ON    mode=AUTO  window=50</span>
+    <span class="ticker-item"><span>✓</span>risk_score=0.73  eta_minutes=4.2  model=lstm</span>
+    <span class="ticker-item"><span>✓</span>temp=65.88°C  z=-0.114  status=NORMAL   ai_fan=OFF   mode=AUTO  window=50</span>
+    <!-- duplicate for seamless loop -->
+    <span class="ticker-item"><span>✓</span>temp=68.42°C  z=+0.312  status=NORMAL   ai_fan=OFF   mode=AUTO  window=50</span>
+    <span class="ticker-item"><span>⚠</span>temp=86.10°C  z=+2.841  status=WARNING   ai_fan=ON    mode=AUTO  window=50</span>
+    <span class="ticker-item"><span>✓</span>temp=71.05°C  z=+0.521  status=NORMAL   ai_fan=ON    mode=AUTO  window=50</span>
+    <span class="ticker-item"><span>⚠</span>temp=91.73°C  z=+3.902  status=CRITICAL  ai_fan=ON    mode=AUTO  window=50</span>
+    <span class="ticker-item"><span>✓</span>risk_score=0.73  eta_minutes=4.2  model=lstm</span>
+    <span class="ticker-item"><span>✓</span>temp=65.88°C  z=-0.114  status=NORMAL   ai_fan=OFF   mode=AUTO  window=50</span>
+  </div>
+</div>
+
+<main>
+
+  <!-- ── OVERVIEW ── -->
+  <section class="reveal">
+    <div class="section-label">01 — Overview</div>
+    <h2>Beyond the alarm threshold</h2>
+    <p>Industrial motors are among the most failure-prone components in manufacturing environments. Thermal stress causes insulation breakdown, bearing seizure, and catastrophic failure — often with no warning. This project builds a <strong style="color:var(--text)">Motor Thermal Digital Twin</strong> that maintains a continuous model of the motor's thermal behaviour, classifies every reading with machine learning, controls a cooling fan automatically, and estimates time-to-failure before the motor gets there.</p>
+
+    <div class="stat-grid" style="margin-top:2rem">
+      <div class="stat-card">
+        <div class="stat-value">4</div>
+        <div class="stat-label">Swappable ML classifiers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value warn">30–60s</div>
+        <div class="stat-label">Predictive lead time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value ok">7</div>
+        <div class="stat-label">Docker services</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">50k</div>
+        <div class="stat-label">LSTM training sequences</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value ok">2s</div>
+        <div class="stat-label">Sensor publish interval</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">5</div>
+        <div class="stat-label">MQTT topics</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ARCHITECTURE ── -->
+  <section class="reveal">
+    <div class="section-label">02 — Architecture</div>
+    <h2>Edge-to-cloud, layer by layer</h2>
+    <p>The system follows a layered architecture with five clearly separated concerns. The key design decision: reactive and predictive AI run in completely independent containers. A crash in the predictive service <em>cannot</em> affect fan control logic that keeps the motor safe.</p>
+
+    <div class="arch-box">
+      <div class="arch-bar">
+        <span class="dot dot-r"></span>
+        <span class="dot dot-y"></span>
+        <span class="dot dot-g"></span>
+        <span style="margin-left:.4rem">system-architecture.diagram</span>
+      </div>
+      <div class="arch-inner">
+
+        <div class="arch-layer">
+          <div class="arch-layer-title">Device Layer</div>
+          <div class="arch-service">
+            <span class="svc-icon">🔌</span> ESP32 + LDR Sensor
+            <span class="svc-badge ok">ADC1 / GPIO34</span>
+          </div>
+          <div class="arch-service">
+            <span class="svc-icon">🐍</span> python-device (simulator)
+            <span class="svc-badge warn">profile</span>
+          </div>
+        </div>
+
+        <div class="arch-layer">
+          <div class="arch-layer-title">Messaging Layer</div>
+          <div class="arch-service">
+            <span class="svc-icon">📡</span> Eclipse Mosquitto 2.0
+            <span class="svc-badge ok">:1883</span>
+          </div>
+        </div>
+
+        <div class="arch-arrow">▼ MQTT publish-subscribe ▼</div>
+
+        <div class="arch-layer">
+          <div class="arch-layer-title">Reactive AI (python-edge)</div>
+          <div class="arch-service">
+            <span class="svc-icon">⚡</span> Z-Score Baseline
+            <span class="svc-badge ok">default</span>
+          </div>
+          <div class="arch-service">
+            <span class="svc-icon">🌳</span> Decision Tree
+          </div>
+          <div class="arch-service">
+            <span class="svc-icon">🌲</span> Isolation Forest
+            <span class="svc-badge warn">adaptive</span>
+          </div>
+          <div class="arch-service">
+            <span class="svc-icon">🌳</span> Random Forest
+            <span class="svc-badge hot">robust</span>
+          </div>
+        </div>
+
+        <div class="arch-layer">
+          <div class="arch-layer-title">Predictive AI (python-predict)</div>
+          <div class="arch-service">
+            <span class="svc-icon">📈</span> Linear Slope Baseline
+            <span class="svc-badge ok">fast</span>
+          </div>
+          <div class="arch-service">
+            <span class="svc-icon">🧠</span> LSTM Neural Network
+            <span class="svc-badge hot">30–60s lead</span>
+          </div>
+        </div>
+
+        <div class="arch-arrow">▼ MQTT alerts + risk scores ▼</div>
+
+        <div class="arch-layer">
+          <div class="arch-layer-title">HMI Layer</div>
+          <div class="arch-service">
+            <span class="svc-icon">🖥</span> Node-RED Dashboard
+            <span class="svc-badge ok">:1880</span>
+          </div>
+        </div>
+
+        <div class="arch-layer">
+          <div class="arch-layer-title">Storage &amp; Visualisation</div>
+          <div class="arch-service">
+            <span class="svc-icon">🗄</span> InfluxDB 2.7
+            <span class="svc-badge ok">:8086</span>
+          </div>
+          <div class="arch-service">
+            <span class="svc-icon">📊</span> Grafana Digital Twin
+            <span class="svc-badge ok">:3000</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ALGORITHMS ── -->
+  <section class="reveal">
+    <div class="section-label">03 — Reactive Classification</div>
+    <h2>Four algorithms, one interface</h2>
+    <p>All four algorithms share an identical two-function contract — <code style="color:var(--accent2);font-family:var(--mono);font-size:.85em">load_model()</code> and <code style="color:var(--accent2);font-family:var(--mono);font-size:.85em">classify(temperature, window)</code>. Switching is a single commented import line and a container rebuild.</p>
+
+    <div class="algo-grid">
+      <div class="algo-card c0">
+        <div class="algo-num">ALGORITHM 0</div>
+        <div class="algo-name">Z-Score Baseline</div>
+        <span class="algo-tag">No training</span>
+        <span class="algo-tag">Stateless</span>
+        <span class="algo-tag">< 0.1 MB</span>
+        <div class="algo-desc">Computes z = (T − μ₅₀) / σ₅₀ and applies hard thresholds. Acts as the regression baseline — if any other algorithm performs worse on known test scenarios, something is wrong.</div>
+      </div>
+      <div class="algo-card c1">
+        <div class="algo-num">ALGORITHM 1</div>
+        <div class="algo-name">Decision Tree</div>
+        <span class="algo-tag">~1s training</span>
+        <span class="algo-tag">Explainable</span>
+        <span class="algo-tag">< 1 MB</span>
+        <div class="algo-desc">Trained on synthetic Gaussian regimes with max_depth=6 and balanced class weights. Rules can be printed and read by a human — invaluable when debugging edge cases.</div>
+      </div>
+      <div class="algo-card c2">
+        <div class="algo-num">ALGORITHM 2</div>
+        <div class="algo-name">Isolation Forest</div>
+        <span class="algo-tag">~400s live</span>
+        <span class="algo-tag">Unsupervised</span>
+        <span class="algo-tag">~5 MB</span>
+        <div class="algo-desc">No labels needed. Learns what "normal" looks like and flags deviations. Self-calibrates thresholds from live data and refits every 1,000 readings — the only algorithm that adapts to hardware drift.</div>
+      </div>
+      <div class="algo-card c3">
+        <div class="algo-num">ALGORITHM 3</div>
+        <div class="algo-name">Random Forest</div>
+        <span class="algo-tag">~3–5s training</span>
+        <span class="algo-tag">Probabilistic</span>
+        <span class="algo-tag">~10 MB</span>
+        <div class="algo-desc">100 trees with tunable probability thresholds (WARNING ≥ 0.40, CRITICAL ≥ 0.50). Lower WARNING threshold intentionally catches early cases at the cost of minor false-positives — a sound safety tradeoff.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PREDICTIVE ── -->
+  <section class="reveal">
+    <div class="section-label">04 — Predictive Maintenance</div>
+    <h2>Know before it happens</h2>
+    <p>The predictive service estimates whether the warning threshold will be crossed within the next few minutes, based on a sliding buffer of the last 30 readings (60 seconds of history). It publishes a continuous risk score from 0 to 1 and an estimated time-to-warning.</p>
+
+    <div class="lead-time-block">
+      <div class="lead-num">30–60s</div>
+      <div class="lead-desc">
+        <strong>Early warning lead time</strong> achieved with the LSTM model.<br>
+        The risk score crosses 0.5 approximately 30–60 seconds before the temperature reaches the 85 °C warning threshold — giving operators time to slow a production line, dispatch a technician, or increase monitoring frequency before the reactive alarm fires.
+      </div>
+    </div>
+
+    <div style="margin-top:1.5rem;padding:1.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface)">
+      <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;margin-bottom:1rem">LSTM Architecture</div>
+      <div style="font-family:var(--mono);font-size:.78rem;color:#b0b6c4;line-height:2">
+        Input: <span style="color:var(--accent2)">30 time steps × 3 features</span> (temperature, delta, z-score)<br>
+        → LSTM(<span style="color:var(--ok)">64 units</span>)<br>
+        → Dropout(<span style="color:var(--ok)">0.2</span>)<br>
+        → Dense(<span style="color:var(--ok)">32</span>, ReLU)<br>
+        → Dense(<span style="color:var(--ok)">1</span>, sigmoid) → <span style="color:var(--accent)">risk probability 0–1</span><br>
+        <br>
+        Trained on <span style="color:var(--accent2)">50,000</span> synthetic sequences · tflite-runtime inference (~5 MB) · Target AUC-ROC ≥ 0.95
+      </div>
+    </div>
+  </section>
+
+  <!-- ── MQTT TOPICS ── -->
+  <section class="reveal">
+    <div class="section-label">05 — MQTT Topics</div>
+    <h2>Five topics, clear ownership</h2>
+    <p>Raw sensor readings stay local. Only processed alerts are forwarded to the cloud SCADA broker — reducing bandwidth and avoiding off-site leakage of operational data.</p>
+
+    <table class="topic-table">
+      <thead>
+        <tr>
+          <th>Topic</th>
+          <th>Publisher</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="topic-path">sensors/group10/motorTemp/data</span></td>
+          <td>ESP32 / simulator</td>
+          <td style="color:var(--muted)">Raw temperature every 2 s — local only</td>
+        </tr>
+        <tr>
+          <td><span class="topic-path">alerts/group10/motorTemp/status</span></td>
+          <td>python-edge</td>
+          <td style="color:var(--muted)">Anomaly status + score → local &amp; cloud SCADA</td>
+        </tr>
+        <tr>
+          <td><span class="topic-path">control/group10/motorTemp/fan</span></td>
+          <td>python-edge / Node-RED</td>
+          <td style="color:var(--muted)">Fan relay ON/OFF command to ESP32</td>
+        </tr>
+        <tr>
+          <td><span class="topic-path">control/group10/motorTemp/mode</span></td>
+          <td>Node-RED</td>
+          <td style="color:var(--muted)">AUTO / MANUAL switch (retained message)</td>
+        </tr>
+        <tr>
+          <td><span class="topic-path">predict/group10/motorTemp/risk</span></td>
+          <td>python-predict</td>
+          <td style="color:var(--muted)">Risk score 0–1 + ETA minutes</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── QUICK START ── -->
+  <section class="reveal">
+    <div class="section-label">06 — Quick Start</div>
+    <h2>One command to run everything</h2>
+    <p>The entire stack — broker, edge AI, predictive service, historian, and dashboards — starts with a single command. No manual configuration needed.</p>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="dot dot-r"></span>
+        <span class="dot dot-y"></span>
+        <span class="dot dot-g"></span>
+        <span class="terminal-title">bash</span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="t-comment"># Clone the repository</span></div>
+        <div><span class="t-prompt">$</span> <span class="t-cmd">git clone https://github.com/cepdnaclk/e20-co326-Motor-Thermal-Monitoring-Digital-Twin.git</span></div>
+        <div><span class="t-prompt">$</span> <span class="t-cmd">cd e20-co326-Motor-Thermal-Monitoring-Digital-Twin</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t-comment"># Start with real ESP32</span></div>
+        <div><span class="t-prompt">$</span> <span class="t-cmd">docker compose up --build</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t-comment"># Or start with the software simulator (no hardware needed)</span></div>
+        <div><span class="t-prompt">$</span> <span class="t-cmd">docker compose --profile simulation up --build</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t-comment"># Watch the edge AI classify in real time</span></div>
+        <div><span class="t-prompt">$</span> <span class="t-cmd">docker logs -f python-edge</span></div>
+        <div><span class="t-out">[EDGE ] <span class="t-edge">temp=86.10°C  z=+2.841  status=WARNING   ai_fan=ON   mode=AUTO  window=50</span></span></div>
+        <div><span class="t-out">[EDGE ] <span class="t-crit">temp=91.73°C  z=+3.902  status=CRITICAL  ai_fan=ON   mode=AUTO  window=50</span></span></div>
+        <div><span class="t-out">[EDGE ] temp=68.20°C  z=+0.182  status=NORMAL   ai_fan=ON   mode=AUTO  window=50</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TEAM ── -->
+  <section class="reveal">
+    <div class="section-label">07 — Team</div>
+    <h2>Group 10</h2>
+    <p>Department of Computer Engineering · University of Peradeniya · CO326, 2026</p>
+
+    <div class="team-grid">
+      <div class="team-card">
+        <div class="team-avatar">
+          <img src="https://github.com/haritha037.png" alt="Haritha Bandara" />
+        </div>
+        <div class="team-name">Haritha Bandara</div>
+        <div class="team-index">E/20/037</div>
+        <div class="team-tags">
+          <span class="team-tag">Architecture</span>
+          <span class="team-tag">edge_ai.py</span>
+          <span class="team-tag">Fan hysteresis</span>
+          <span class="team-tag">Cloud SCADA</span>
+        </div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">
+          <img src="https://github.com/Yohansenanayake.png" alt="Yohan Senanayake" />
+        </div>
+        <div class="team-name">Yohan Senanayake</div>
+        <div class="team-index">E/20/363</div>
+        <div class="team-tags">
+          <span class="team-tag">ML algorithms</span>
+          <span class="team-tag">Feature engineering</span>
+          <span class="team-tag">Isolation Forest</span>
+          <span class="team-tag">Random Forest</span>
+        </div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">
+          <img src="https://github.com/chamodi2.png" alt="Chamodi Senarathne" />
+        </div>
+        <div class="team-name">Chamodi Senarathne</div>
+        <div class="team-index">E/20/365</div>
+        <div class="team-tags">
+          <span class="team-tag">LSTM</span>
+          <span class="team-tag">Predictive service</span>
+          <span class="team-tag">InfluxDB</span>
+          <span class="team-tag">Grafana</span>
+        </div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">
+          <img src="https://github.com/janithkw.png" alt="Janith Wanasinghe" />
+        </div>
+        <div class="team-name">Janith Wanasinghe</div>
+        <div class="team-index">E/20/420</div>
+        <div class="team-tags">
+          <span class="team-tag">Docker Compose</span>
+          <span class="team-tag">Hardware (ESP32)</span>
+          <span class="team-tag">InfluxDB routing</span>
+          <span class="team-tag">Provisioning</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-left">
+    CO326 · University of Peradeniya · Group 10 · 2026
+  </div>
+  <div class="footer-links">
+    <a href="https://github.com/cepdnaclk/e20-co326-Motor-Thermal-Monitoring-Digital-Twin" target="_blank">GitHub</a>
+    <a href="Report/Group10_Motor_Thermal_Monitoring_Digital_Twin_Report.pdf" target="_blank">Report</a>
+    <a href="https://cepdnaclk.github.io/" target="_blank">CEPDNA CLK</a>
+  </div>
+</footer>
+
+<script>
+  // Scroll-triggered reveal
+  const observer = new IntersectionObserver(
+    entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+    { threshold: 0.1 }
+  );
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
